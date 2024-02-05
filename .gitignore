@@ -6,3 +6,4 @@ dist/*.js
 dist/*.mjs
 dist/*.map
 dist/*.css
+#orderedArt.tsv

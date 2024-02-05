@@ -5,6 +5,7 @@ import SquaresRNG from "./squaresInterface.js";
 import tsvObject from "./tsvReader.js";
 
 (async function () {
+
 // Get target issue
 if (!Deno.args[0]) {
 	console.error(`Issue not provided!`);
@@ -50,14 +51,23 @@ sortedGroups.forEach((e0) => {
 	while (workGroup.length) {
 		let rngResult = SquaresRNG.f64(seed + ptr);
 		let emitIndex = Math.floor(rngResult * workGroup.length);
-		console.debug(`len: ${workGroup.length}, ptr: ${ptr}, idx: ${emitIndex}, rng: ${rngResult}`);
+		//console.debug(`len: ${workGroup.length}, ptr: ${ptr}, idx: ${emitIndex}, rng: ${rngResult}`);
 		sortedGrouped[e0].push(workGroup.splice(emitIndex, 1)[0]);
 		ptr ++;
 	};
 });
 
-// Emit results to console in TSV
-
-// Emit results to file in MD
+// Emit results
+let tsvFile = `vote\tsource`;
+console.info(`\nMarkdown of this issue:\n`);
+sortedGroups.forEach((vote) => {
+	sortedGrouped[vote].forEach((source) => {
+		// To file in TSV
+		tsvFile += `\n${vote}\t${source}`;
+		// To console in MD
+		console.info(`* ![]() [source](${source})`);
+	});
+});
+await Deno.writeTextFile(`${workDir}/orderedArt.tsv`, tsvFile);
 
 })();
