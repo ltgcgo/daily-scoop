@@ -1,4 +1,6 @@
 #!/bin/bash
-args=( "$@" )
-deno run --allow-read --allow-write --allow-net dist/main.js ${args[@]}
+if [ ! -f "./dist/main.js" ]; then
+	shx build
+fi
+deno run --allow-read --allow-write ./dist/main.js "$@"
 exit
