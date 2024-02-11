@@ -34,11 +34,22 @@ tsvObject(await Deno.readTextFile(`${workDir}/artwork.tsv`)).forEach((e) => {
 	let vote = parseInt(e.vote || -1);
 	groups.add(vote);
 	grouped[vote] = grouped[vote] || [];
-	grouped[vote].push(e.source);
+	grouped[vote].push({
+		source: e.source
+	});
 });
 
 // Grouped sort against issue data
 let sortedGroups = Array.from(groups);
+sortedGroups.forEach((vote) => {
+	grouped[vote].forEach((source) => {
+		source.hash = hashProvider(source.source, true);
+		//console.debug(`0x${source.hash.toString(16).padStart(12,"0")}: ${source.source}`);
+	});
+	grouped[vote].sort((a, b) => {
+		return a.hash - b.hash;
+	});
+});
 sortedGroups.sort((a, b) => {
 	return b - a;
 });
@@ -63,9 +74,9 @@ console.info(`\nMarkdown of this issue:\n`);
 sortedGroups.forEach((vote) => {
 	sortedGrouped[vote].forEach((source) => {
 		// To file in TSV
-		tsvFile += `\n${vote}\t${source}`;
+		tsvFile += `\n${vote}\t${source.source}`;
 		// To console in MD
-		console.info(`* ![]() [source](${source})`);
+		console.info(`* ![]() [source](${source.source})`);
 	});
 });
 await Deno.writeTextFile(`${workDir}/orderedArt.tsv`, tsvFile);
