@@ -1,6 +1,6 @@
 "use strict";
 
-import TextEmitter from "./textEmit.js";
+import TextEmitter from "../../libs/rochelle/textEmit.mjs";
 
 let uDec = new TextDecoder("utf-8", {fatal: true});
 let instance = Deno.env.get("INSTANCE");
