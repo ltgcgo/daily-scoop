@@ -4,7 +4,8 @@ import TextEmitter from "../../libs/rochelle/textEmit.mjs";
 import MiniSignal from "../../libs/twinkle/miniSignal.mjs";
 
 const maxRetries = 3,
-retryDelayMs = 3000;
+retryDelayMs = 3000,
+retryMinDelayMs = 200;
 
 let ServerEvents = class extends EventTarget {
 	// Read-only section
@@ -92,8 +93,72 @@ let ServerEvents = class extends EventTarget {
 						upThis.dispatchEvent(new Event("open"));
 						retry = 0;
 						let lineReader = new TextEmitter(dialer.body, 0, "utf-8");
+						let eventType, dataRope = "";
 						lineReader.addEventListener("text", ({data}) => {
 							console.debug(data);
+							let colonIndex = data?.indexOf(":");
+							if (!data?.trim()?.length) {
+								//console.debug(`Emitting event...`);
+								if (dataRope) {
+									//console.debug(`Type: ${eventType || "message"}`);
+									//console.debug(`Data: ${dataRope}`);
+									upThis.dispatchEvent(new MessageEvent(eventType || "message", {
+										"data": dataRope,
+										"origin": upThis.#url,
+										"lastEventId": upThis.#lastEventId
+									}));
+									//console.debug(`Event "${eventType || "message"}" emitted. Data length: ${dataRope.length}.`);
+									eventType = undefined;
+									dataRope = "";
+									upThis.#lastEventId = undefined;
+								} else {
+									//console.debug(`Nothing to emit.`);
+								};
+							} else if (data.codePointAt(0) == 58) {
+								//console.debug(`Line ignored: commented out.`);
+							} else if (colonIndex > -1) {
+								let field = data.slice(0, colonIndex);
+								let valueStart = colonIndex + 1;
+								if (data.codePointAt(colonIndex + 1) == 32) {
+									valueStart ++;
+								};
+								let value = data.slice(valueStart);
+								switch(field) {
+									case "event": {
+										eventType = value;
+										break;
+									};
+									case "data": {
+										if (dataRope.length) {
+											dataRope += "\n";
+										};
+										dataRope += value;
+										break;
+									};
+									case "id": {
+										if (data.indexOf("\x00") == -1) {
+											upThis.#lastEventId = value;
+										} else {
+											//console.debug(`Line ignored: event ID contains NULL.`);
+										};
+										break;
+									};
+									case "retry": {
+										let retryMs = parseInt(retryMs);
+										if (retryMs && retryMs >= retryMinDelayMs) {
+											upThis.#retry = retryMs;
+										} else {
+											//console.debug(`Line ignored: invalid retry delay (${value} = ${retryMs}).`);
+										};
+										break;
+									};
+									default: {
+										//console.debug(`Line ignored: invalid line.`);
+									};
+								};
+							} else {
+								//console.debug(`Line ignored: no valid field or value.`);
+							};
 						});
 						lineReader.addEventListener("close", () => {
 							miniSig.finish();
