@@ -96,12 +96,12 @@ sseClient.addEventListener("notification", async ({data}) => {
 	console.debug(`Submitted:  ${target.status.url}`);
 	console.debug(`Submission: ${post.status.url}`);
 	try {
-		await fetch(`https://${instance}/api/v1/statuses/${target.status.id}/reblog`, {
+		/*await fetch(`https://${instance}/api/v1/statuses/${target.status.id}/reblog`, {
 			"method": `POST`,
 			"headers": {
 				"Authorization": `Bearer ${token}`
 			}
-		});
+		});*/
 	} catch (err) {
 		console.debug(`Boosting failed: ${target.status.url}`);
 	};
