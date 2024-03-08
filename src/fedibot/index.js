@@ -22,10 +22,10 @@ sseClient.addEventListener("disconnect", () => {
 sseClient.addEventListener("close", () => {
 	console.debug(`Client closed.`);
 });
-sseClient.addEventListener("notification", ({data}) => {
+sseClient.addEventListener("notification", async ({data}) => {
 	let post = JSON.parse(data);
 	if (post.type != "mention") {
-		console.info(`Post was not a mention: ${status.uri}`);
+		console.info(`Post was not a mention: ${post.status.url}`);
 		return;
 	};
 	let botNotMentioned = true;
@@ -33,11 +33,11 @@ sseClient.addEventListener("notification", ({data}) => {
 		// The bot is not yet "self-aware"...
 		botNotMentioned = false;
 	} else {
-		console.info(`Post didn't contain a mention: ${status.uri}`);
+		console.info(`Post didn't contain a mention: ${post.status.url}`);
 		return;
 	};
 	if (botNotMentioned) {
-		console.info(`Post didn't mention the bot: ${status.uri}`);
+		console.info(`Post didn't mention the bot: ${post.status.url}`);
 		return;
 	};
 	let tagNotAttached = true;
@@ -49,37 +49,32 @@ sseClient.addEventListener("notification", ({data}) => {
 		});
 	};
 	if (tagNotAttached) {
-		console.info(`Post didn't attach an appropriate tag: ${status.uri}`);
+		console.info(`Post didn't attach an appropriate tag: ${post.status.url}`);
 		return;
 	};
 	let target = post;
-	console.info(`[${post.account.display_name}](${post.account.url}) (\`@${post.account.acct}\`) submitted an entry from [${target.account.display_name}](${target.account.url}) (\`@${target.account.acct}\`)!\nView: ${target.status.uri}`);
-	console.info(data);
+	if (!post.status.media_attachments?.length) {
+		// The post may not be a submission itself
+		console.info(`Post didn't offer attachments, so trying to trace up: ${post.status.url}`);
+		if (post.status.in_reply_to_id) {
+			try {
+				let targetRaw = await (await fetch (`https://${instance}/api/v1/statuses/${post.status.in_reply_to_id}`, {
+					"headers": {
+						"Authorization": `Bearer ${token}`
+					}
+				})).json();
+				target = {
+					"account": targetRaw.account,
+					"status": targetRaw
+				}
+			} catch (err) {
+				console.info(`Tracing failed: ${post.status.url}`);
+			};
+		} else {
+			console.info(`No replies, falling back: ${post.status.url}`);
+		};
+	};
+	console.debug(`Submitted:  ${target.status.url}`);
+	console.debug(`Submission: ${post.status.url}`);
+	console.info(`[${post.account.display_name}](${post.account.url}) (\`@${post.account.acct}\`) submitted an entry from [${target.account.display_name}](${target.account.url}) (\`@${target.account.acct}\`)!\nView: ${target.status.url}`);
 });
-
-/* let sse = await fetch(`https://${instance}/api/v1/streaming/user`, {
-	"headers": {
-		"Accept": "text/event-stream",
-		"Authorization": `Bearer ${token}`
-	}
-});
-if (sse.status != 200) {
-	console.debug(await sse.text());
-} else {
-	console.debug(`SSE connected.`);
-	let lineFeed = new TextEmitter(sse.body);
-	lineFeed.addEventListener("chunk", () => {
-		console.debug(`SSE received raw chunk.`);
-	});
-	lineFeed.addEventListener("raw", () => {
-		console.debug(`SSE received raw line.`);
-	});
-	lineFeed.addEventListener("fail", console.debug);
-	lineFeed.addEventListener("error", console.debug);
-	lineFeed.addEventListener("text", ({data}) => {
-		console.debug(data);
-	});
-	lineFeed.addEventListener("close", () => {
-		console.debug(`SSE closed.`);
-	});
-}; */
