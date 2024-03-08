@@ -1,12 +1,63 @@
 "use strict";
 
-import TextEmitter from "../../libs/rochelle/textEmit.mjs";
+import ServerEvents from "../../libs/eclipsed/client.mjs";
 
-let uDec = new TextDecoder("utf-8", {fatal: true});
-let instance = Deno.env.get("INSTANCE");
-let token = Deno.env.get("TOKEN");
+const instance = Deno.env.get("INSTANCE");
+const token = Deno.env.get("TOKEN");
 
-let sse = await fetch(`https://${instance}/api/v1/streaming/user`, {
+let sseClient = new ServerEvents(`https://${instance}/api/v1/streaming/user`, {
+	"headers": {
+		"Authorization": `Bearer ${token}`
+	}
+});
+sseClient.addEventListener("connecting", () => {
+	console.debug(`Client connecting...`);
+});
+sseClient.addEventListener("open", () => {
+	console.debug(`Client connected.`);
+});
+sseClient.addEventListener("disconnect", () => {
+	console.debug(`Client disconnected.`);
+});
+sseClient.addEventListener("close", () => {
+	console.debug(`Client closed.`);
+});
+sseClient.addEventListener("notification", ({data}) => {
+	let post = JSON.parse(data);
+	if (post.type != "mention") {
+		console.info(`Post was not a mention: ${status.uri}`);
+		return;
+	};
+	let botNotMentioned = true;
+	if (post.status.mentions) {
+		// The bot is not yet "self-aware"...
+		botNotMentioned = false;
+	} else {
+		console.info(`Post didn't contain a mention: ${status.uri}`);
+		return;
+	};
+	if (botNotMentioned) {
+		console.info(`Post didn't mention the bot: ${status.uri}`);
+		return;
+	};
+	let tagNotAttached = true;
+	if (post.status.tags) {
+		post.status.tags.forEach(({name}) => {
+			if (name.toLowerCase() == "weeklypony") {
+				tagNotAttached = false;
+			};
+		});
+	};
+	if (tagNotAttached) {
+		console.info(`Post didn't attach an appropriate tag: ${status.uri}`);
+		return;
+	};
+	let target = post;
+	console.info(`[${post.account.display_name}](${post.account.url}) (\`@${post.account.acct}\`) submitted an entry from [${target.account.display_name}](${target.account.url}) (\`@${target.account.acct}\`)!\nView: ${target.status.uri}`);
+	console.info(data);
+});
+
+/* let sse = await fetch(`https://${instance}/api/v1/streaming/user`, {
 	"headers": {
 		"Accept": "text/event-stream",
 		"Authorization": `Bearer ${token}`
@@ -31,4 +82,4 @@ if (sse.status != 200) {
 	lineFeed.addEventListener("close", () => {
 		console.debug(`SSE closed.`);
 	});
-};
+}; */
