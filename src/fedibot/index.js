@@ -24,6 +24,7 @@ if (sse.status != 200) {
 		console.debug(`SSE received raw line.`);
 	});
 	lineFeed.addEventListener("fail", console.debug);
+	lineFeed.addEventListener("error", console.debug);
 	lineFeed.addEventListener("text", ({data}) => {
 		console.debug(data);
 	});

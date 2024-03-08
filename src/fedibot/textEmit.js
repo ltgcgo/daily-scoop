@@ -46,91 +46,111 @@ let TextEmitter = class extends EventTarget {
 				};
 				this.dispatchEvent(new Event("close"));
 				notClosed = false;
-			}).catch((ev) => {
-				this.dispatchEvent(new ErrorEvent("error", ev));
+			}).catch((err) => {
+				if (buffer) {
+					this.dispatchEvent(new MessageEvent("raw", {
+						"data": buffer
+					}));
+					buffer = undefined;
+				};
+				this.dispatchEvent(new ErrorEvent("error", {
+					message: err.message,
+					error: err
+				}));
 				this.dispatchEvent(new Event("close"));
 				notClosed = false;
 			});
 			while (streamAlive && notClosed) {
-				let chunk = await reader.read();
-				streamAlive = !chunk.done;
-				if (streamAlive) {
-					let byteArray = chunk.value;
-					this.dispatchEvent(new MessageEvent("chunk", {
-						"data": byteArray
-					}));
-					if (byteArray.constructor != Uint8Array &&
-						byteArray.constructor != Uint8ClampedArray) {
-						this.dispatchEvent(new MessageEvent("fail", {
+				try {
+					let chunk = await reader.read();
+					streamAlive = !chunk.done;
+					if (streamAlive) {
+						let byteArray = chunk.value;
+						this.dispatchEvent(new MessageEvent("chunk", {
 							"data": byteArray
 						}));
-					} else {
-						// Splitter!
-						let startIdx = 0;
-						let endIdx = 0;
-						let lastChar = 0;
-						let isBroken = false;
-						for (let i = 0; i < byteArray.length; i ++) {
-							switch (byteArray[i]) {
-								case 10: {
-									if (lastChar == 13) {
-										startIdx ++;
-									} else {
+						if (byteArray.constructor != Uint8Array &&
+							byteArray.constructor != Uint8ClampedArray) {
+							this.dispatchEvent(new MessageEvent("fail", {
+								"data": byteArray
+							}));
+						} else {
+							// Splitter!
+							let startIdx = 0;
+							let endIdx = 0;
+							let lastChar = 0;
+							let isBroken = false;
+							for (let i = 0; i < byteArray.length; i ++) {
+								switch (byteArray[i]) {
+									case 10: {
+										if (lastChar == 13) {
+											startIdx ++;
+										} else {
+											isBroken = true;
+											endIdx = i;
+										};
+										break;
+									};
+									case 13: {
 										isBroken = true;
 										endIdx = i;
+										break;
 									};
-									break;
+									default: {
+										isBroken = false;
+									};
 								};
-								case 13: {
-									isBroken = true;
-									endIdx = i;
-									break;
-								};
-								default: {
-									isBroken = false;
-								};
-							};
-							if (isBroken) {
-								let sliceBuffer = byteArray.subarray(startIdx, endIdx);
-								let commitBuffer = sliceBuffer;
-								if (buffer) {
-									commitBuffer = new Uint8Array(buffer.length + sliceBuffer.length);
-									commitBuffer.set(buffer);
-									commitBuffer.set(sliceBuffer, buffer.length);
-									buffer = undefined;
-								};
-								this.dispatchEvent(new MessageEvent("raw", {
-									"data": commitBuffer
-								}));
-								try {
-									let text = this.#decoder.decode(commitBuffer);
-									this.dispatchEvent(new MessageEvent("text", {
-										"data": text
-									}));
-								} catch (err) {
-									this.dispatchEvent(new MessageEvent("fail", {
+								if (isBroken) {
+									let sliceBuffer = byteArray.subarray(startIdx, endIdx);
+									let commitBuffer = sliceBuffer;
+									if (buffer) {
+										commitBuffer = new Uint8Array(buffer.length + sliceBuffer.length);
+										commitBuffer.set(buffer);
+										commitBuffer.set(sliceBuffer, buffer.length);
+										buffer = undefined;
+									};
+									this.dispatchEvent(new MessageEvent("raw", {
 										"data": commitBuffer
 									}));
+									try {
+										let text = this.#decoder.decode(commitBuffer);
+										this.dispatchEvent(new MessageEvent("text", {
+											"data": text
+										}));
+									} catch (err) {
+										this.dispatchEvent(new MessageEvent("fail", {
+											"data": commitBuffer
+										}));
+									};
+									startIdx = i + 1;
+									isBroken = false;
 								};
-								startIdx = i + 1;
-								isBroken = false;
+								lastChar = byteArray[i];
 							};
-							lastChar = byteArray[i];
-						};
-						if (!isBroken) {
-							// Commit unfinished text to buffer
-							if (buffer) {
-								let sliceBuffer = byteArray.subarray(startIdx);
-								let commitBuffer = new Uint8Array(buffer.length + sliceBuffer.length);
-								commitBuffer.set(buffer);
-								commitBuffer.set(sliceBuffer, buffer.length);
-								buffer = commitBuffer;
-							} else if (startIdx < byteArray.length) {
-								buffer = byteArray.subarray(startIdx);
+							if (!isBroken) {
+								// Commit unfinished text to buffer
+								if (buffer) {
+									let sliceBuffer = byteArray.subarray(startIdx);
+									let commitBuffer = new Uint8Array(buffer.length + sliceBuffer.length);
+									commitBuffer.set(buffer);
+									commitBuffer.set(sliceBuffer, buffer.length);
+									buffer = commitBuffer;
+								} else if (startIdx < byteArray.length) {
+									buffer = byteArray.subarray(startIdx);
+								};
 							};
 						};
+					} else {
+						if (buffer) {
+							// Empty the buffer
+							this.dispatchEvent(new MessageEvent("raw", {
+								"data": buffer
+							}));
+							buffer = undefined;
+						};
+						this.dispatchEvent(new Event("close"));
 					};
-				} else {
+				} catch (err) {
 					if (buffer) {
 						// Empty the buffer
 						this.dispatchEvent(new MessageEvent("raw", {
@@ -138,6 +158,10 @@ let TextEmitter = class extends EventTarget {
 						}));
 						buffer = undefined;
 					};
+					this.dispatchEvent(new ErrorEvent("error", {
+						message: err.message,
+						error: err
+					}));
 					this.dispatchEvent(new Event("close"));
 				};
 			};
