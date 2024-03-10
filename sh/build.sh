@@ -21,12 +21,12 @@ substRules='s/{var /{let /g;s/}var /}let /g;s/;var /;let /g;s/(var /(let /g;s/va
 ls -1 src | while IFS= read -r dir ; do
 	if [ -e "src/${dir}/index.js" ] ; then
 		echo "Building JS target \"${dir}\"..."
-		LOGLEVEL=warning shx live $dir --minify-identifiers --minify-syntax $1 > /dev/null
+		LOGLEVEL=warning shx live $dir "--minify-identifiers" $1 > /dev/null
 		sed -zi "$substRules" "dist/${dir}.js"
 	fi
 	if [ -e "src/${dir}/index.mjs" ] ; then
 		echo "Building JS module \"${dir}\"..."
-		LOGLEVEL=warning shx live $dir --minify-identifiers --minify-syntax $1 > /dev/null
+		LOGLEVEL=warning shx live $dir "--minify" $1 > /dev/null
 		sed -zi "$substRules" "dist/${dir}.mjs"
 	fi
 done

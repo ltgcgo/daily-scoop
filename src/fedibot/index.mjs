@@ -25,7 +25,7 @@ console.info(`Logged in into the Matrix account.`);
 // Mastodon notification sifting
 let onNotify = async (post) => {
 	if (post.type != "mention") {
-		console.info(`Post was not a mention: ${post?.status?.url} (${post.id})`);
+		console.info(`Post was not a mention: ${post.status && post.status.url} (${post.id})`);
 		return;
 	};
 	let botNotMentioned = true;
@@ -113,15 +113,13 @@ sseClient.addEventListener("notification", async ({data}) => {
 	let post = JSON.parse(data);
 	await onNotify(post);
 });
-(async () => {
-	try {
-		// Sift through old notifications
-		(await (await fetch(`https://${instance}/api/v1/notifications?exclude_types[]=follow_request`, {
-			"headers": {
-				"Authorization": `Bearer ${token}`
-			}
-		})).json()).forEach(onNotify);
-	} catch (err) {
-		console.debug(`Old notification parsing error.`);
-	};
-})();
+try {
+	// Sift through old notifications
+	(await (await fetch(`https://${instance}/api/v1/notifications?exclude_types[]=follow_request`, {
+		"headers": {
+			"Authorization": `Bearer ${token}`
+		}
+	})).json()).forEach(onNotify);
+} catch (err) {
+	console.debug(`Old notification parsing error.`);
+};

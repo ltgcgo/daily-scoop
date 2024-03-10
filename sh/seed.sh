@@ -1,3 +1,3 @@
 #!/bin/bash
-deno run dist/seed.js
+deno run dist/seed.mjs
 exit
