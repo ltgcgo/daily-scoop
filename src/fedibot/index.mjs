@@ -1,12 +1,20 @@
 "use strict";
 
 import ServerEvents from "../../libs/eclipsed/client.mjs";
-import {SmallBot} from "../../libs/small-bot-matrix/mod.ts";
+import jsSHA3 from "../../libs/jsSHA/sha3.js";
+//import {SmallBot} from "../../libs/small-bot-matrix/mod.ts";
 
 const instance = Deno.env.get("INSTANCE");
 const token = Deno.env.get("MASTO_TOKEN");
 const mxToken = Deno.env.get("MX_TOKEN");
 const mxRoom = Deno.env.get("MX_ROOM");
+
+// Hash provider
+let hashProvider = (text) => {
+	let hashHost = new jsSHA3(`SHA3-224`, `TEXT`, {"encoding": "UTF8"});
+	hashHost.update(text);
+	return hashHost.getHash(`B64`).slice(0, 32);
+};
 
 console.info(`The bot will send messages to this room: ${mxRoom}`);
 
@@ -23,7 +31,7 @@ console.info(`Logged in into the Matrix account.`);
 
 // Mastodon integration
 // Mastodon notification sifting
-let onNotify = async (post) => {
+let onNotify = async (post, onBoot = false) => {
 	if (post.type != "mention") {
 		console.info(`Post was not a mention: ${post.status && post.status.url} (${post.id})`);
 		return;
@@ -55,7 +63,7 @@ let onNotify = async (post) => {
 	let target = post;
 	if (!post.status.media_attachments?.length) {
 		// The post may not be a submission itself
-		console.info(`Post didn't offer attachments, so trying to trace up: ${post.status.url}`);
+		//console.info(`Post didn't offer attachments, so trying to trace up: ${post.status.url}`);
 		if (post.status.in_reply_to_id) {
 			try {
 				let targetRaw = await (await fetch (`https://${instance}/api/v1/statuses/${post.status.in_reply_to_id}`, {
@@ -76,16 +84,35 @@ let onNotify = async (post) => {
 	};
 	console.debug(`Submitted:  ${target.status.url}`);
 	console.debug(`Submission: ${post.status.url}`);
-	/*try {
-		await fetch(`https://${instance}/api/v1/statuses/${target.status.id}/reblog`, {
+	// Reply for notification
+	if (onBoot) {
+		console.debug(`Skipped replying during boot.`);
+		return;
+	};
+	try {
+		// See if already replied
+		let replyCount = (await (await fetch(`https://${instance}/api/v1/statuses/${post.status.id}/context`, {
+			"cache": "no-store"
+		})).json()).descendants?.length || -1;
+		if (replyCount > 0) {
+			console.debug(`Post already replied (${replyCount}). Ignored.`);
+			return;
+		} else {
+			console.debug(`Trying to notify about a successful submission... (${replyCount})`);
+		};
+		// If not replied already
+		await fetch(`https://${instance}/api/v1/statuses`, {
 			"method": `POST`,
 			"headers": {
-				"Authorization": `Bearer ${token}`
-			}
+				"Authorization": `Bearer ${token}`,
+				"Content-Type": `application/json`,
+				"Idempotency-Key": hashProvider(`${post.account.acct}\t${target.account.acct}\t${post.status.id}`)
+			},
+			"body": `{"status":"@${post.account.acct}\\nWork by @${target.account.acct} has successfully been submitted!","in_reply_to_id":"${post.status.id}","media_ids":[],"sensitive":false,"spoiler_text":"","visibility":"direct","language":"en"}`
 		});
 	} catch (err) {
-		console.debug(`Boosting failed: ${target.status.url}`);
-	};*/
+		console.debug(`Replying failed: ${post.status.url}`);
+	};
 	//console.info(`[${post.account.display_name}](${post.account.url}) (\`@${post.account.acct}\`) submitted an entry from [${target.account.display_name}](${target.account.url}) (\`@${target.account.acct}\`)!\nView: ${target.status.url}`);
 };
 
@@ -115,11 +142,14 @@ sseClient.addEventListener("notification", async ({data}) => {
 });
 try {
 	// Sift through old notifications
-	(await (await fetch(`https://${instance}/api/v1/notifications?exclude_types[]=follow_request`, {
+	let oldNews = await (await fetch(`https://${instance}/api/v1/notifications?exclude_types[]=follow_request`, {
 		"headers": {
 			"Authorization": `Bearer ${token}`
 		}
-	})).json()).forEach(onNotify);
+	})).json();
+	for (let i = 0; i < oldNews.length; i ++) {
+		await onNotify(oldNews[i], true);
+	};
 } catch (err) {
 	console.debug(`Old notification parsing error.`);
 };
