@@ -22,27 +22,8 @@ console.info(`Logged in into the Matrix account.`);
 */
 
 // Mastodon integration
-console.info(`Connecting to Mastodon...`);
-let sseClient = new ServerEvents(`https://${instance}/api/v1/streaming/user`, {
-	"headers": {
-		"Authorization": `Bearer ${token}`
-	}
-});
-sseClient.addEventListener("connecting", () => {
-	console.debug(`Client connecting...`);
-});
-sseClient.addEventListener("open", async () => {
-	console.debug(`Client connected.`);
-	//await mxClient.sendMessage(mxRoom, "m.text", `Daily Scoop has successfully logged into Mastodon! Now listening for mentions.`);
-});
-sseClient.addEventListener("disconnect", () => {
-	console.debug(`Client disconnected.`);
-});
-sseClient.addEventListener("close", () => {
-	console.debug(`Client closed.`);
-});
-sseClient.addEventListener("notification", async ({data}) => {
-	let post = JSON.parse(data);
+// Mastodon notification sifting
+let onNotify = async (post) => {
 	if (post.type != "mention") {
 		console.info(`Post was not a mention: ${post?.status?.url} (${post.id})`);
 		return;
@@ -95,15 +76,52 @@ sseClient.addEventListener("notification", async ({data}) => {
 	};
 	console.debug(`Submitted:  ${target.status.url}`);
 	console.debug(`Submission: ${post.status.url}`);
-	try {
-		/*await fetch(`https://${instance}/api/v1/statuses/${target.status.id}/reblog`, {
+	/*try {
+		await fetch(`https://${instance}/api/v1/statuses/${target.status.id}/reblog`, {
 			"method": `POST`,
 			"headers": {
 				"Authorization": `Bearer ${token}`
 			}
-		});*/
+		});
 	} catch (err) {
 		console.debug(`Boosting failed: ${target.status.url}`);
-	};
+	};*/
 	//console.info(`[${post.account.display_name}](${post.account.url}) (\`@${post.account.acct}\`) submitted an entry from [${target.account.display_name}](${target.account.url}) (\`@${target.account.acct}\`)!\nView: ${target.status.url}`);
+};
+
+// Mastodon login
+console.info(`Connecting to Mastodon...`);
+let sseClient = new ServerEvents(`https://${instance}/api/v1/streaming/user`, {
+	"headers": {
+		"Authorization": `Bearer ${token}`
+	}
+}); // Listen to new notifications
+sseClient.addEventListener("connecting", () => {
+	console.debug(`Client connecting...`);
 });
+sseClient.addEventListener("open", async () => {
+	console.debug(`Client connected.`);
+	//await mxClient.sendMessage(mxRoom, "m.text", `Daily Scoop has successfully logged into Mastodon! Now listening for mentions.`);
+});
+sseClient.addEventListener("disconnect", () => {
+	console.debug(`Client disconnected.`);
+});
+sseClient.addEventListener("close", () => {
+	console.debug(`Client closed.`);
+});
+sseClient.addEventListener("notification", async ({data}) => {
+	let post = JSON.parse(data);
+	await onNotify(post);
+});
+(async () => {
+	try {
+		// Sift through old notifications
+		(await (await fetch(`https://${instance}/api/v1/notifications?exclude_types[]=follow_request`, {
+			"headers": {
+				"Authorization": `Bearer ${token}`
+			}
+		})).json()).forEach(onNotify);
+	} catch (err) {
+		console.debug(`Old notification parsing error.`);
+	};
+})();
