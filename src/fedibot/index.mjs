@@ -108,10 +108,15 @@ let onNotify = async (post, onBoot = false) => {
 		if (handle.indexOf("@") < 0) {
 			handle += `@${instance}`;
 		};
+		let submitterHandle = post.account.acct;
+		if (submitterHandle.indexOf("@") < 0) {
+			submitterHandle += `@${instance}`;
+		};
 		let assembledPreviews = [];
 		target.status.media_attachments.forEach(({preview_url}) => {
 			assembledPreviews.push(`![](${preview_url})`);
 		});
+		assembledPreviews.push(`*(Submitted by \`@${submitterHandle}\`)*`);
 		// Public submission
 		let lavenderResponse = await fetch(`https://${lavInst}/api/v3/post`, {
 			"method": "POST",
