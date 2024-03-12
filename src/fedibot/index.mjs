@@ -122,7 +122,7 @@ let onNotify = async (post, onBoot = false) => {
 				"community_id": lavComId,
 				"url": target.status.url,
 				"name": `Artwork by @${handle}`,
-				"body": assembledPreviews.join("\n"),
+				"body": assembledPreviews.join("\n\n"),
 				"auth": lavToken
 			})
 		});
