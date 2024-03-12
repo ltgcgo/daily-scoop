@@ -35,6 +35,7 @@ console.info(`Logged in into the Matrix account.`);
 // Mastodon integration
 // Mastodon notification sifting
 let onNotify = async (post, onBoot = false) => {
+	let timeNow = Date.now();
 	if (post.type != "mention") {
 		console.info(`Post was not a mention: ${post.status && post.status.url} (${post.id})`);
 		return;
@@ -85,6 +86,28 @@ let onNotify = async (post, onBoot = false) => {
 			console.info(`No replies, falling back: ${post.status.url}`);
 		};
 	};
+	let timePost = new Date(target,status.created_at),
+	timePostMs = timePost.getTime();
+	let issueId = Math.floor((timeNow + 367200000) / 604800000) - 2818;
+	let lastAllowedMs = (issueId + 2817) * 604800000 - 367200000,
+	lastAllowed = new Date(lastAllowedMs);
+	if (lastAllowedMs > timePostMs) {
+		console.debug(`Way past submission time.`);
+		try {
+			let mastoResponse = await fetch(`https://${instance}/api/v1/statuses`, {
+				"method": `POST`,
+				"headers": {
+					"Authorization": `Bearer ${token}`,
+					"Content-Type": `application/json`,
+					"Idempotency-Key": hashProvider(`${target.account.acct}\t${target.status.id}`)
+				},
+				"body": `{"status":"Sorry, but the submission is way past the deadline for issue ${issueId}. Submissions must be posted after 18:00 UTC+0 ${lastAllowed.getUTCDate()}/${lastAllowed.getUTCMonth() + 1}/${lastAllowed.getUTCFullYear()} to be accepted for the ongoing issue.","in_reply_to_id":"${post.status.id}","media_ids":[],"sensitive":false,"spoiler_text":"","visibility":"direct","language":"en"}`
+			});
+		} catch (err) {
+			console.debug(`Replying failed: ${post.status.url}\n${err.stack}`);
+		};
+		return;
+	};
 	console.debug(`Submitted:  ${target.status.url}`);
 	console.debug(`Submission: ${post.status.url}`);
 	// Reply for notification
@@ -117,6 +140,7 @@ let onNotify = async (post, onBoot = false) => {
 			assembledPreviews.push(`![](${preview_url})`);
 		});
 		assembledPreviews.push(`*(Submitted by \`@${submitterHandle}\`)*`);
+		assembledPreviews.push(`*If not denied, this submission should appear in issue ${issueId}.*`);
 		// Public submission
 		let lavenderResponse = await fetch(`https://${lavInst}/api/v3/post`, {
 			"method": "POST",
