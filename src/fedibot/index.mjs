@@ -86,13 +86,13 @@ let onNotify = async (post, onBoot = false) => {
 			console.info(`No replies, falling back: ${post.status.url}`);
 		};
 	};
-	let timePost = new Date(target,status.created_at),
+	let timePost = new Date(target.status.created_at),
 	timePostMs = timePost.getTime();
 	let issueId = Math.floor((timeNow + 367200000) / 604800000) - 2818;
 	let lastAllowedMs = (issueId + 2817) * 604800000 - 367200000,
 	lastAllowed = new Date(lastAllowedMs);
 	if (lastAllowedMs > timePostMs) {
-		console.debug(`Way past submission time.`);
+		console.debug(`Way past submission time: ${target.status.url}`);
 		try {
 			let mastoResponse = await fetch(`https://${instance}/api/v1/statuses`, {
 				"method": `POST`,
@@ -210,5 +210,5 @@ try {
 		await onNotify(oldNews[i], true);
 	};
 } catch (err) {
-	console.debug(`Old notification parsing error.`);
+	console.debug(`Old notification parsing error.\n${err.stack}`);
 };
