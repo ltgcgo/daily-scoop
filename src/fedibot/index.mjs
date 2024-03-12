@@ -12,6 +12,8 @@ const lavComId = parseInt(Deno.env.get("LAV_COM_ID"));
 const mxToken = Deno.env.get("MX_TOKEN");
 const mxRoom = Deno.env.get("MX_ROOM");
 
+const monthNames = "Jan,Feb,Mar,Apr,May,June,July,Aug,Sept,Oct,Nov,Dec".split(",");
+
 // Hash provider
 let hashProvider = (text) => {
 	let hashHost = new jsSHA3(`SHA3-224`, `TEXT`, {"encoding": "UTF8"});
@@ -105,7 +107,7 @@ let onNotify = async (post, onBoot = false) => {
 					"Content-Type": `application/json`,
 					"Idempotency-Key": hashProvider(`${target.account.acct}\t${target.status.id}`)
 				},
-				"body": `{"status":"Sorry, but the submission is way past the deadline for issue ${issueId}. Submissions must be posted after 18:00 UTC+0 ${lastAllowed.getUTCDate()}/${lastAllowed.getUTCMonth() + 1}/${lastAllowed.getUTCFullYear()} to be accepted for the ongoing issue.","in_reply_to_id":"${post.status.id}","media_ids":[],"sensitive":false,"spoiler_text":"","visibility":"direct","language":"en"}`
+				"body": `{"status":"@${post.account.acct}\\nSorry, but the work by @${target.account.acct} is way past the submission deadline for issue ${issueId}. Submissions must be posted after 18:00 ${lastAllowed.getUTCDate()} ${monthNames[lastAllowed.getUTCMonth()]} ${lastAllowed.getUTCFullYear()} (UTC +0:00) to be accepted for the ongoing issue.","in_reply_to_id":"${post.status.id}","media_ids":[],"sensitive":false,"spoiler_text":"","visibility":"direct","language":"en"}`
 			});
 		} catch (err) {
 			console.debug(`Replying failed: ${post.status.url}\n${err.stack}`);
