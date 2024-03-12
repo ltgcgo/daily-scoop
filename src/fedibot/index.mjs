@@ -93,6 +93,10 @@ let onNotify = async (post, onBoot = false) => {
 	lastAllowed = new Date(lastAllowedMs);
 	if (lastAllowedMs > timePostMs) {
 		console.debug(`Way past submission time: ${target.status.url}`);
+		if (onBoot) {
+			console.debug(`Skipped replying during boot.`);
+			return;
+		};
 		try {
 			let mastoResponse = await fetch(`https://${instance}/api/v1/statuses`, {
 				"method": `POST`,
