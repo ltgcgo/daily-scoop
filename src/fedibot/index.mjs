@@ -6,6 +6,9 @@ import jsSHA3 from "../../libs/jsSHA/sha3.js";
 
 const instance = Deno.env.get("INSTANCE");
 const token = Deno.env.get("MASTO_TOKEN");
+const lavInst = Deno.env.get("LAV_INST");
+const lavToken = Deno.env.get("LAV_TOKEN");
+const lavComId = parseInt(Deno.env.get("LAV_COM_ID"));
 const mxToken = Deno.env.get("MX_TOKEN");
 const mxRoom = Deno.env.get("MX_ROOM");
 
@@ -101,17 +104,44 @@ let onNotify = async (post, onBoot = false) => {
 			console.debug(`Trying to notify about a successful submission... (${replyCount})`);
 		};
 		// If not replied already
-		await fetch(`https://${instance}/api/v1/statuses`, {
+		let handle = target.account.acct;
+		if (handle.indexOf("@") < 0) {
+			handle += `@${instance}`;
+		};
+		let assembledPreviews = [];
+		target.status.media_attachments.forEach(({preview_url}) => {
+			assembledPreviews.push(`![](${preview_url})`);
+		});
+		// Public submission
+		let lavenderResponse = await fetch(`https://${lavInst}/api/v3/post`, {
+			"method": "POST",
+			"headers": {
+				"Content-Type": "application/json"
+			},
+			"body": JSON.stringify({
+				"community_id": lavComId,
+				"url": target.status.url,
+				"name": `Artwork by @${handle}`,
+				"body": assembledPreviews.join("\n"),
+				"auth": lavToken
+			})
+		});
+		//console.debug(lavenderResponse);
+		console.debug(`Lavender post status: ${lavenderResponse.status} ${lavenderResponse.statusText}`);
+		let lavenderPost = await lavenderResponse.json();
+		//console.debug(lavenderPost);
+		// Private reply
+		let mastoResponse = await fetch(`https://${instance}/api/v1/statuses`, {
 			"method": `POST`,
 			"headers": {
 				"Authorization": `Bearer ${token}`,
 				"Content-Type": `application/json`,
-				"Idempotency-Key": hashProvider(`${post.account.acct}\t${target.account.acct}\t${post.status.id}`)
+				"Idempotency-Key": hashProvider(`${target.account.acct}\t${post.status.id}`)
 			},
-			"body": `{"status":"@${post.account.acct}\\nWork by @${target.account.acct} has successfully been submitted!","in_reply_to_id":"${post.status.id}","media_ids":[],"sensitive":false,"spoiler_text":"","visibility":"direct","language":"en"}`
+			"body": `{"status":"@${post.account.acct}\\nWork by @${target.account.acct} has successfully been submitted!\\nLavender URL: ${lavenderPost.post_view.post.ap_id}","in_reply_to_id":"${post.status.id}","media_ids":[],"sensitive":false,"spoiler_text":"","visibility":"direct","language":"en"}`
 		});
 	} catch (err) {
-		console.debug(`Replying failed: ${post.status.url}`);
+		console.debug(`Replying failed: ${post.status.url}\n${err.stack}`);
 	};
 	//console.info(`[${post.account.display_name}](${post.account.url}) (\`@${post.account.acct}\`) submitted an entry from [${target.account.display_name}](${target.account.url}) (\`@${target.account.acct}\`)!\nView: ${target.status.url}`);
 };
