@@ -136,7 +136,7 @@ let onNotify = async (post, onBoot = false) => {
 			"headers": {
 				"Authorization": `Bearer ${token}`,
 				"Content-Type": `application/json`,
-				"Idempotency-Key": hashProvider(`${target.account.acct}\t${post.status.id}`)
+				"Idempotency-Key": hashProvider(`${target.account.acct}\t${target.status.id}`)
 			},
 			"body": `{"status":"@${post.account.acct}\\nWork by @${target.account.acct} has successfully been submitted!\\nLavender URL: ${lavenderPost.post_view.post.ap_id}","in_reply_to_id":"${post.status.id}","media_ids":[],"sensitive":false,"spoiler_text":"","visibility":"direct","language":"en"}`
 		});
