@@ -107,7 +107,7 @@ let onNotify = async (post, onBoot = false) => {
 					"Content-Type": `application/json`,
 					"Idempotency-Key": hashProvider(`${target.account.acct}\t${target.status.id}`)
 				},
-				"body": `{"status":"@${post.account.acct}\\nSorry, but the work by @${target.account.acct} is way past the submission deadline for issue ${issueId}. Submissions must be posted after 18:00 ${lastAllowed.getUTCDate()} ${monthNames[lastAllowed.getUTCMonth()]} ${lastAllowed.getUTCFullYear()} (UTC +0:00) to be accepted for the ongoing issue.","in_reply_to_id":"${post.status.id}","media_ids":[],"sensitive":false,"spoiler_text":"","visibility":"direct","language":"en"}`
+				"body": `{"status":"@${post.account.acct}\\nSorry, but the work is way past the submission deadline for issue ${issueId}. Submissions must be posted after 18:00 ${lastAllowed.getUTCDate()} ${monthNames[lastAllowed.getUTCMonth()]} ${lastAllowed.getUTCFullYear()} (UTC +0:00) to be accepted for the ongoing issue.","in_reply_to_id":"${post.status.id}","media_ids":[],"sensitive":false,"spoiler_text":"","visibility":"direct","language":"en"}`
 			});
 		} catch (err) {
 			console.debug(`Replying failed: ${post.status.url}\n${err.stack}`);
