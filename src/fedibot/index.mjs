@@ -19,7 +19,7 @@ const monthNames = "Jan,Feb,Mar,Apr,May,June,July,Aug,Sept,Oct,Nov,Dec".split(",
 console.debug(`Exporting localStorage...`);
 await Deno.writeTextFile(`./ls.tsv`, "");
 for (let lsi = 0; lsi < localStorage.length; lsi ++) {
-	let key = localStorage.key(i);
+	let key = localStorage.key(lsi);
 	await Deno.writeTextFile(`./ls.tsv`, `${JSON.stringify(key)}\t${JSON.stringify(localStorage.getItem(key))}`, {append: true});
 	if (!(lsi & 15)) {
 		console.debug(`Exported ${lsi + 1}/${localStorage.length}.`);
@@ -122,13 +122,17 @@ let onNotify = async (post, onBoot = false) => {
 	localDbItem = localStorage.getItem(targetUrlHash);
 	if (localDbItem && localDbItem.length > 1) {
 		console.debug(`Duplicate submission: ${post.status.url}`);
+		if (onBoot) {
+			console.debug(`Skipped replying during boot.`);
+			return;
+		};
 		localDbItem = JSON.parse(localDbItem);
 		let mastoResponse = await fetch(`https://${instance}/api/v1/statuses`, {
 			"method": `POST`,
 			"headers": {
 				"Authorization": `Bearer ${token}`,
 				"Content-Type": `application/json`,
-				"Idempotency-Key": hashProvider(`${target.account.acct}\t${target.status.id}`)
+				"Idempotency-Key": hashProvider(`${post.status.id}\t${target.account.acct}\t${target.status.id}`)
 			},
 			"body": `{"status":"@${post.account.acct}\\nSorry, but the work has been submitted before. The existing submission is available here: ${localDbItem && localDbItem.lavUrl || "(database read error)"}","in_reply_to_id":"${post.status.id}","media_ids":[],"sensitive":false,"spoiler_text":"","visibility":"direct","language":"en"}`
 		});
@@ -263,6 +267,7 @@ sseClient.addEventListener("close", () => {
 	console.debug(`Client closed.`);
 });
 sseClient.addEventListener("notification", async ({data}) => {
+	console.debug(`Notification received.`);
 	let post = JSON.parse(data);
 	await onNotify(post);
 });
