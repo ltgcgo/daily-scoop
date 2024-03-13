@@ -39,10 +39,15 @@ console.info(`The bot will send messages to this room: ${mxRoom}`);
 let banListReady = new MiniSignal();
 let banList, banListUpdater = async () => {
 	console.debug(`Updating the opt-out list...`);
-	let arr = await (await fetch(`https://equestria.social/api/v1/blocks`)).json();
+	let arr = await (await fetch(`https://equestria.social/api/v1/blocks`, {
+		"headers": {
+			"Authorization": `Bearer ${token}`
+		}
+	})).json();
 	banList = [];
-	arr.forEach(({acct}) => {
+	arr.forEach(({acct}, i) => {
 		banList.push(acct);
+		//console.debug(`Adding account... ${i + 1}/${arr.length}`);
 	});
 	console.debug(`Current opt-out user count: ${banList.length}.`);
 	banListReady.finish();
