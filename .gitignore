@@ -7,3 +7,4 @@ dist/*.mjs
 dist/*.map
 dist/*.css
 #orderedArt.tsv
+ls.tsv

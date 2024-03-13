@@ -3,6 +3,7 @@
 import ServerEvents from "../../libs/eclipsed/client.mjs";
 import jsSHA3 from "../../libs/jsSHA/sha3.js";
 //import {SmallBot} from "../../libs/small-bot-matrix/mod.ts";
+import MiniSignal from "../../libs/twinkle/miniSignal.mjs";
 
 const instance = Deno.env.get("INSTANCE");
 const token = Deno.env.get("MASTO_TOKEN");
@@ -14,6 +15,18 @@ const mxRoom = Deno.env.get("MX_ROOM");
 
 const monthNames = "Jan,Feb,Mar,Apr,May,June,July,Aug,Sept,Oct,Nov,Dec".split(",");
 
+// Export localStorage
+console.debug(`Exporting localStorage...`);
+await Deno.writeTextFile(`./ls.tsv`, "");
+for (let lsi = 0; lsi < localStorage.length; lsi ++) {
+	let key = localStorage.key(i);
+	await Deno.writeTextFile(`./ls.tsv`, `${JSON.stringify(key)}\t${JSON.stringify(localStorage.getItem(key))}`, {append: true});
+	if (!(lsi & 15)) {
+		console.debug(`Exported ${lsi + 1}/${localStorage.length}.`);
+	};
+};
+console.debug(`Export complete.`);
+
 // Hash provider
 let hashProvider = (text) => {
 	let hashHost = new jsSHA3(`SHA3-224`, `TEXT`, {"encoding": "UTF8"});
@@ -22,6 +35,18 @@ let hashProvider = (text) => {
 };
 
 console.info(`The bot will send messages to this room: ${mxRoom}`);
+
+let banListReady = new MiniSignal();
+let banList, banListUpdater = async () => {
+	console.debug(`Updating the opt-out list...`);
+	let arr = await (await fetch(`https://equestria.social/api/v1/blocks`)).json();
+	banList = [];
+	arr.forEach(({acct}) => {
+		banList.push(acct);
+	});
+	console.debug(`Current opt-out user count: ${banList.length}.`);
+	banListReady.finish();
+};
 
 // Matrix integration
 /*
@@ -129,7 +154,18 @@ let onNotify = async (post, onBoot = false) => {
 		if (replyCount > 0) {
 			console.debug(`Post already replied (${replyCount}). Ignored.`);
 			return;
-		} else {
+		} else if (banList.indexOf(target.account.acct) > -1) {
+			console.debug(`Post is from a user opted-out of the panel.`);
+			await fetch(`https://${instance}/api/v1/statuses`, {
+				"method": `POST`,
+				"headers": {
+					"Authorization": `Bearer ${token}`,
+					"Content-Type": `application/json`,
+					"Idempotency-Key": hashProvider(`${post.account.acct}\t${post.status.id}`)
+				},
+				"body": `{"status":"@${post.account.acct}\\nThe author has opted out of the panel. Submission has been cancelled.","in_reply_to_id":"${post.status.id}","media_ids":[],"sensitive":false,"spoiler_text":"","visibility":"direct","language":"en"}`
+			});
+		} {
 			console.debug(`Trying to notify about a successful submission... (${replyCount})`);
 		};
 		// If not replied already
@@ -182,6 +218,9 @@ let onNotify = async (post, onBoot = false) => {
 };
 
 // Mastodon login
+banListUpdater();
+await banListReady.wait();
+let banListThread = setInterval(banListUpdater, 120000);
 console.info(`Connecting to Mastodon...`);
 let sseClient = new ServerEvents(`https://${instance}/api/v1/streaming/user`, {
 	"headers": {
