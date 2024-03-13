@@ -113,6 +113,22 @@ let onNotify = async (post, onBoot = false) => {
 			console.info(`No replies, falling back: ${post.status.url}`);
 		};
 	};
+	let targetUrlHash = hashProvider(target.status.url),
+	localDbItem = localStorage.getItem(targetUrlHash);
+	if (localDbItem && localDbItem.length > 1) {
+		console.debug(`Duplicate submission: ${post.status.url}`);
+		localDbItem = JSON.parse(localDbItem);
+		let mastoResponse = await fetch(`https://${instance}/api/v1/statuses`, {
+			"method": `POST`,
+			"headers": {
+				"Authorization": `Bearer ${token}`,
+				"Content-Type": `application/json`,
+				"Idempotency-Key": hashProvider(`${target.account.acct}\t${target.status.id}`)
+			},
+			"body": `{"status":"@${post.account.acct}\\nSorry, but the work has been submitted before. The existing submission is available here: ${localDbItem && localDbItem.lavUrl || "(database read error)"}","in_reply_to_id":"${post.status.id}","media_ids":[],"sensitive":false,"spoiler_text":"","visibility":"direct","language":"en"}`
+		});
+		return;
+	};
 	let timePost = new Date(target.status.created_at),
 	timePostMs = timePost.getTime();
 	let issueId = Math.floor((timeNow + 367200000) / 604800000) - 2818;
@@ -156,7 +172,7 @@ let onNotify = async (post, onBoot = false) => {
 			return;
 		} else if (banList.indexOf(target.account.acct) > -1) {
 			console.debug(`Post is from a user opted-out of the panel.`);
-			await fetch(`https://${instance}/api/v1/statuses`, {
+			let mastoResponse = await fetch(`https://${instance}/api/v1/statuses`, {
 				"method": `POST`,
 				"headers": {
 					"Authorization": `Bearer ${token}`,
@@ -200,6 +216,7 @@ let onNotify = async (post, onBoot = false) => {
 		//console.debug(lavenderResponse);
 		console.debug(`Lavender post status: ${lavenderResponse.status} ${lavenderResponse.statusText}`);
 		let lavenderPost = await lavenderResponse.json();
+		localStorage.setItem(targetUrlHash, JSON.stringify({"lavUrl":lavenderPost.post_view.post.ap_id}));
 		//console.debug(lavenderPost);
 		// Private reply
 		let mastoResponse = await fetch(`https://${instance}/api/v1/statuses`, {
