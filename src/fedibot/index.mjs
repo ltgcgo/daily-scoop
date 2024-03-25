@@ -226,6 +226,17 @@ let onNotify = async (post, onBoot = false) => {
 		console.debug(`Lavender post status: ${lavenderResponse.status} ${lavenderResponse.statusText}`);
 		let lavenderPost = await lavenderResponse.json();
 		localStorage.setItem(targetUrlHash, JSON.stringify({"lavUrl":lavenderPost.post_view.post.ap_id}));
+		await fetch(`https://${lavInst}/api/v3/post/like`, {
+			"method": "POST",
+			"headers": {
+				"Content-Type": "application/json"
+			},
+			"body": JSON.stringify({
+				"auth": lavToken,
+				"post_id": lavenderPost.post_view.post.id,
+				"score": 0
+			})
+		}); // Revoke the like applied by default.
 		//console.debug(lavenderPost);
 		// Private reply
 		let mastoResponse = await fetch(`https://${instance}/api/v1/statuses`, {
