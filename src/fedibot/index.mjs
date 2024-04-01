@@ -20,7 +20,7 @@ console.debug(`Exporting localStorage...`);
 await Deno.writeTextFile(`./ls.tsv`, "");
 for (let lsi = 0; lsi < localStorage.length; lsi ++) {
 	let key = localStorage.key(lsi);
-	await Deno.writeTextFile(`./ls.tsv`, `${JSON.stringify(key)}\t${JSON.stringify(localStorage.getItem(key))}`, {append: true});
+	await Deno.writeTextFile(`./ls.tsv`, `${JSON.stringify(key)}\t${JSON.stringify(localStorage.getItem(key))}\n`, {append: true});
 	if (!(lsi & 15)) {
 		console.debug(`Exported ${lsi + 1}/${localStorage.length}.`);
 	};
